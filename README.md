@@ -2,7 +2,7 @@
 
 Benchmark the compilation time of your Haskell modules using the stack log file.
 
-Useful for finding which of your modules uses too many fancy language features. :)
+Useful for finding which of your modules use too many fancy language features. :)
 
 ## Installation
 * clone the repo
