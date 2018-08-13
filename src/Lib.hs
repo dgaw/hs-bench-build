@@ -20,6 +20,7 @@ import           Text.Printf
 type FilePosition = Integer
 type MicroSeconds = Int
 type Store = MVar [Record]
+type ModuleName = BS.ByteString
 
 -- | A Record represents a log line with some metadata attached, e.g. time
 data Record = Record {
@@ -33,6 +34,9 @@ data RecordType = GenericLine -- ^ A line we are not interested in but keep arou
                 | End -- ^ End time of log parsing
                 | Module -- ^ Log line about compiling a module
 
+-- | Poll the log file periodically and parse lines to a list of Records
+--   Ends the program by pretty printing the Records when it encounters
+--   the linking stage in the compilation
 readLog
   :: FilePath
   -> FilePosition
@@ -88,6 +92,8 @@ readLog path initSize delay callback = do
               waitDelay
               go sizeSoFar store
 
+-- | Called on every new line in the log
+--   Parse a line into a Record and put it in the Store
 lineCallback :: Store -> BS.ByteString -> IO ()
 lineCallback store line = do
   now <- getCurrentTime
@@ -97,12 +103,15 @@ lineCallback store line = do
               Nothing      -> Record GenericLine now line
   putMVar store (xs ++ [rec])
 
-parseModuleName :: BS.ByteString -> Maybe BS.ByteString
+-- | Parse out the module name from a log line formatted like so:
+--   "[26 of 28] Compiling Web.Views.Site   ( myapp/Web/Views/Site.hs ..."
+parseModuleName :: BS.ByteString -> Maybe ModuleName
 parseModuleName x =
   if BS.isInfixOf "Compiling" x
      then Just $ BS.takeWhile (/= 32) $ BS.drop 10 $ snd $ BS.breakSubstring "Compiling" x
      else Nothing
 
+-- | Filter records corresponding to module compilation
 moduleRecords :: [Record] -> [Record]
 moduleRecords xs = filter isModule xs
   where
@@ -110,12 +119,14 @@ moduleRecords xs = filter isModule xs
                       Module -> True
                       _      -> False
 
+-- | Get the "End record", which means the end of log parsing
 endRecord :: [Record] -> Maybe Record
 endRecord xs = case recType (last xs) of
                       End -> Just $ last xs
                       _   -> Nothing
 
-timeModules :: Store -> IO [(BS.ByteString, Double)]
+-- | Calculate the time taken to compile each module
+timeModules :: Store -> IO [(ModuleName, Double)]
 timeModules store = do
   recs <- readMVar store
   let mModulesWithEnd = do
@@ -130,7 +141,8 @@ timeModules store = do
            diff = realToFrac (diffUTCTime (recTime y) (recTime x)) :: Double
            in go (y:rest) (res ++ [(recContent x, diff)])
 
-prettyPrint :: [(BS.ByteString, Double)] -> IO ()
+-- | Pretty print the results of timeModules
+prettyPrint :: [(ModuleName, Double)] -> IO ()
 prettyPrint times = do
   putStrLn "Biggest offenders at the top:"
   putStrLn "-----------------------------"
