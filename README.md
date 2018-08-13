@@ -10,7 +10,7 @@ Useful for finding which of your modules uses too many fancy language features. 
 
 ## Usage
 ```
-$ hs-bench-build .stack-work/logs/myapp-0.0.1.log
+$ hs-bench-build .stack-work/logs/myapp-0.5.1.log
 ```
 Once started the tool will monitor your log file for changes 
 so start your `stack build` in a separate terminal and wait for it to finish.
