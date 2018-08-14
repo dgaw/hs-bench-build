@@ -23,7 +23,7 @@ main = do
             putStrLn usage
             exitSuccess
         [path] -> do
-            readLog path 0 pollInterval lineCallback
+            readLog path 0 pollInterval defLineCallback defFinishCallback
         _ -> do
             putStrLn usage
             exitFailure

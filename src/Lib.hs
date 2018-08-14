@@ -34,16 +34,16 @@ data RecordType = GenericLine -- ^ A line we are not interested in but keep arou
                 | End -- ^ End time of log parsing
                 | Module -- ^ Log line about compiling a module
 
--- | Poll the log file periodically and parse lines to a list of Records
---   Ends the program by pretty printing the Records when it encounters
---   the linking stage in the compilation
+-- | Polls the log file periodically and calls the lineCallback on each new line.
+--   Calls the finishCallback when it encounters the linking stage in the compilation.
 readLog
   :: FilePath
   -> FilePosition
   -> MicroSeconds
   -> (Store -> BS.ByteString -> IO ()) -- ^ Line callback
+  -> (Store -> IO ())                  -- ^ Finish callback
   -> IO ()
-readLog path initSize delay callback = do
+readLog path initSize delay lineCallback finishCallback = do
   putStrLn $ "Checking the log file every " ++ show (delay `div` 1000) ++ " ms. Run your stack build now."
   st <- initStore
   go initSize st
@@ -67,41 +67,45 @@ readLog path initSize delay callback = do
                               length (filter ("Linking" `BS.isPrefixOf`) ls) > 0
          case compare newSize sizeSoFar of
            GT -> do
-              -- putStrLn "File changes detected (new lines added)"
+              -- putStrLn "File changes detected (new lines added)" -- Debug
               h <- openFile path ReadMode
               hSeek h AbsoluteSeek sizeSoFar
               newContents <- BS.hGetContents h
               let ls = BS.splitWith (==10) newContents
               let startNext = newSize - (toInteger $ BS.length $ last ls)
-              mapM_ (callback store) $ init ls
-              when (shouldQuit ls) $ do
-                t <- getCurrentTime
-                xs <- takeMVar store
-                putMVar store (xs ++ [Record End t "Ended recording"]) -- ^ Important, see timeModules
-                timeModules store >>= prettyPrint
-                exitSuccess
+              mapM_ (lineCallback store) $ init ls
+              when (shouldQuit ls) $ finishCallback store >> exitSuccess
               -- hClose h -- TODO: check how it alters behaviour
               waitDelay
               go startNext store
            LT -> do
-              -- putStrLn "New file detected - restarting"
+              -- putStrLn "New file detected - restarting" -- Debug
               store' <- initStore
               go 0 store'
            EQ -> do
-              -- putStrLn "No file change. Waiting..."
+              -- putStrLn "No file change. Waiting..." -- Debug
               waitDelay
               go sizeSoFar store
 
 -- | Called on every new line in the log
 --   Parse a line into a Record and put it in the Store
-lineCallback :: Store -> BS.ByteString -> IO ()
-lineCallback store line = do
+defLineCallback :: Store -> BS.ByteString -> IO ()
+defLineCallback store line = do
   now <- getCurrentTime
   xs <- takeMVar store
   let rec = case parseModuleName line of
               Just modName -> Record Module now modName
               Nothing      -> Record GenericLine now line
   putMVar store (xs ++ [rec])
+
+-- | Called at the end of parsing
+--   Adds the "end record" and outputs results
+defFinishCallback :: Store -> IO ()
+defFinishCallback store = do
+  t <- getCurrentTime
+  xs <- takeMVar store
+  putMVar store (xs ++ [Record End t "Ended recording"]) -- ^ Important, see timeModules
+  timeModules store >>= prettyPrint
 
 -- | Parse out the module name from a log line formatted like so:
 --   "[26 of 28] Compiling Web.Views.Site   ( myapp/Web/Views/Site.hs ..."
