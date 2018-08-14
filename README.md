@@ -20,6 +20,7 @@ so start your `stack build` in a separate terminal and wait for it to finish.
 $ hs-bench-build ./myapp/.stack-work/logs/myapp-0.5.1.log
 
 Checking the log file every 100 ms. Run your stack build now.
+-----------------------------
 Biggest offenders at the top:
 -----------------------------
 Model.CoreTypes: 5.215 sec 

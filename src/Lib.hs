@@ -21,13 +21,14 @@ type FilePosition = Integer
 type MicroSeconds = Int
 type Store = MVar [Record]
 type ModuleName = BS.ByteString
+type Verbose = Bool
 
 -- | A Record represents a log line with some metadata attached, e.g. time
 data Record = Record {
     recType    :: RecordType
   , recTime    :: UTCTime
   , recContent :: BS.ByteString
-  }
+}
 
 data RecordType = GenericLine -- ^ A line we are not interested in but keep around anyway
                 | Start -- ^ Start time of log parsing
@@ -42,8 +43,9 @@ readLog
   -> MicroSeconds
   -> (Store -> BS.ByteString -> IO ()) -- ^ Line callback
   -> (Store -> IO ())                  -- ^ Finish callback
+  -> Verbose
   -> IO ()
-readLog path initSize delay lineCallback finishCallback = do
+readLog path initSize delay lineCallback finishCallback verbose = do
   putStrLn $ "Checking the log file every " ++ show (delay `div` 1000) ++ " ms. Run your stack build now."
   st <- initStore
   go initSize st
@@ -68,7 +70,7 @@ readLog path initSize delay lineCallback finishCallback = do
                               length (filter ("Linking" `BS.isPrefixOf`) ls) > 0
          case compare newSize sizeSoFar of
            GT -> do
-              -- putStrLn "File changes detected (new lines added)" -- Debug
+              when verbose $ putStrLn "File changes detected (new lines added)" -- Debug
               h <- openFile path ReadMode
               hSeek h AbsoluteSeek sizeSoFar
               newContents <- BS.hGetContents h
@@ -80,11 +82,11 @@ readLog path initSize delay lineCallback finishCallback = do
               waitDelay
               go startNext store
            LT -> do
-              -- putStrLn "New file detected - restarting" -- Debug
+              when verbose $ putStrLn "New file detected - restarting" -- Debug
               store' <- initStore
               go 0 store'
            EQ -> do
-              -- putStrLn "No file change. Waiting..." -- Debug
+              -- when verbose $ putStrLn "No file change. Waiting..." -- Debug (noisy)
               waitDelay
               go sizeSoFar store
 

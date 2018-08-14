@@ -1,5 +1,5 @@
 name:                hs-bench-build
-version:             0.1.0.0
+version:             0.2.0.0
 github:              "dgaw/hs-bench-build"
 license:             BSD3
 author:              "Damian Gaweda"
@@ -25,6 +25,7 @@ dependencies:
 - bytestring >= 0.10.8.2
 - unix
 - time
+- optparse-applicative
 
 library:
   source-dirs: src

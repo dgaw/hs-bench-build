@@ -2,28 +2,37 @@ module Main where
 
 import           Lib
 
-import           System.Environment
-import           System.Exit
+import           Data.Semigroup      ((<>))
+import           Options.Applicative
 
-usage :: String
-usage = "Benchmark the compilation time of each Haskell module using the stack log file.\n"
-        ++ "Usage: hs-bench-build .stack-work/logs/myapp-0.0.1.log"
+-- | Command line options
+data Options = Options {
+    verbose  :: Bool
+  , interval :: Int
+  , file     :: FilePath
+}
 
-pollInterval :: MicroSeconds
-pollInterval = 100 * 1000
+options :: Parser Options
+options = Options
+      <$> switch
+          ( long "verbose"
+         <> short 'v'
+         <> help "Verbose output (for debugging)" )
+      <*> option auto
+          ( long "interval"
+         <> short 'i'
+         <> help "File polling interval in milliseconds"
+         <> showDefault
+         <> value 100
+         <> metavar "MILLISEC" )
+      <*> argument str (metavar "LOG_FILE")
 
 main :: IO ()
 main = do
-    args <- getArgs
-    case args of
-        ["-h"] -> do
-            putStrLn usage
-            exitSuccess
-        ["--help"] -> do
-            putStrLn usage
-            exitSuccess
-        [path] -> do
-            readLog path 0 pollInterval defLineCallback defFinishCallback
-        _ -> do
-            putStrLn usage
-            exitFailure
+  opts <- execParser optsInfo
+  readLog (file opts) 0 (interval opts * 1000) defLineCallback defFinishCallback (verbose opts)
+  where
+    optsInfo = info (options <**> helper)
+      ( fullDesc
+     <> progDesc "Watches the LOG_FILE and measures the compilation time of each module."
+     <> header "Benchmark the compilation time of each Haskell module using stack log files." )
