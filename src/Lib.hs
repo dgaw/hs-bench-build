@@ -124,7 +124,7 @@ moduleRecords xs = filter isModule xs
                       Module -> True
                       _      -> False
 
--- | Get the "End record", which means the end of log parsing
+-- | Get the "End record" (used for timing)
 endRecord :: [Record] -> Maybe Record
 endRecord xs = case recType (last xs) of
                       End -> Just $ last xs
