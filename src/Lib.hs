@@ -47,19 +47,20 @@ readLog path initSize delay lineCallback finishCallback = do
   putStrLn $ "Checking the log file every " ++ show (delay `div` 1000) ++ " ms. Run your stack build now."
   st <- initStore
   go initSize st
+
   where
     initStore = do
       t <- getCurrentTime
       newMVar [Record Start t "Started recording"]
-    waitDelay = do
-      threadDelay delay
+
+    waitDelay = threadDelay delay
+
     go sizeSoFar store = do
       startTime <- (recTime . head) <$> readMVar store
       errorOrStat <- tryJust (guard . isDoesNotExistError) $ getFileStatus path
       case errorOrStat of
-       Left _ -> do putStrLn "File doesn't exist. Waiting for it..."
-                    waitDelay
-                    go sizeSoFar store
+       Left _ -> do putStrLn "Error: file doesn't exist."
+                    exitFailure
        Right stat -> do
          let newSize = fromIntegral $ fileSize stat :: Integer
              -- TODO: figure out a better way to detect when to quit
@@ -148,6 +149,7 @@ timeModules store = do
 -- | Pretty print the results of timeModules
 prettyPrint :: [(ModuleName, Double)] -> IO ()
 prettyPrint times = do
+  putStrLn "-----------------------------"
   putStrLn "Biggest offenders at the top:"
   putStrLn "-----------------------------"
   mapM_ (\x -> printf "%s: %0.3f sec \n" (C8.unpack $ fst x) (snd x)) (descending times)
