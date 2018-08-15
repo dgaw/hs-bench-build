@@ -11,7 +11,7 @@ extra-source-files:
 - ChangeLog.md
 
 # Metadata used when publishing your package
-synopsis:            Benchmark the compilation time of your Haskell modules
+synopsis:            Benchmark the compilation time of your Haskell project.
 category:            Benchmarking
 
 # To avoid duplicated efforts in documentation and dealing with the
