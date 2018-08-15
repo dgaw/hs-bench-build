@@ -5,23 +5,23 @@ module Lib where
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Char8 as C8
+import qualified Data.ByteString          as BS
+import qualified Data.ByteString.Char8    as C8
 import           Data.Function
 import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Time
--- import           Data.Time.Clock.POSIX
+import           Control.Concurrent.Async
 import           System.Exit
 import           System.IO
-import           System.IO             (isEOF)
+import           System.IO                (isEOF)
 import           System.IO.Error
 import           System.Posix.Files
 import           Text.Printf
 
 type FilePosition = Integer
-type MicroSeconds = Int
+type MilliSeconds = Int
 type Store = MVar [Record]
 type Verbose = Bool
 
@@ -38,52 +38,58 @@ data RecordType = GenericLine -- ^ A log line
                 deriving Show
 
 -- | Reads the stdin for log lines or (if provided) polls the log file
---   Calls the lineCallback on each new line.
---   Calls the finishCallback when it encounters the linking stage in the compilation.
+--   Calls the lineCallback on each new line and finishCallback when stdin ends.
 readLog
   :: Maybe FilePath
-  -> FilePosition
-  -> MicroSeconds
+  -> MilliSeconds                      -- ^ Polling interval
   -> (Store -> BS.ByteString -> IO ()) -- ^ Line callback
   -> (Store -> IO ())                  -- ^ Finish callback
   -> Verbose
   -> IO ()
-readLog mPath initSize delay lineCallback finishCallback verbose = do
+readLog mPath interval lineCallback finishCallback verbose = do
   st <- initStore
   case mPath of
     Just path -> do
-      putStrLn $ "Checking the log file every " ++ show (delay `div` 1000) ++ " ms..."
-      goFile path initSize st
+      putStrLn $ "Reading log lines from the file every " ++ show interval ++ " ms..."
+      -- When using a file wait for the end of stdin (i.e. end of compilation)
+      -- asynchronously in order to prevent blocking the polling stuff
+      asyncDone <- async waitForStdinEOF
+      goFile path 0 st asyncDone
     Nothing -> do
       putStrLn "Reading log lines from stdin..."
       goStdin st
 
   where
     initStore = newMVar []
-    waitDelay = threadDelay delay
+    waitInterval = threadDelay (interval * 1000)
+    waitForStdinEOF = do
+      done <- isEOF
+      if done
+        then return ()
+        else do
+          _ <- getLine
+          waitForStdinEOF
 
     goStdin store = do
-      -- startTime <- (recTime . head) <$> readMVar store
       done <- isEOF
       if done
          then do
-           finishCallback store >> exitSuccess
+           finishCallback store
+           exitSuccess
          else do
            l <- getLine
            lineCallback store $ C8.pack l
            goStdin store
 
-    goFile path sizeSoFar store = do
-      -- startTime <- (recTime . head) <$> readMVar store
+    goFile path sizeSoFar store asyncDone = do
+      done <- isJust <$> poll asyncDone
+      when done $ finishCallback store >> exitSuccess
       errorOrStat <- tryJust (guard . isDoesNotExistError) $ getFileStatus path
       case errorOrStat of
        Left _ -> do putStrLn "Error: file doesn't exist."
                     exitFailure
        Right stat -> do
          let newSize = fromIntegral $ fileSize stat :: Integer
-             -- TODO: figure out a better way to detect when to quit
-             -- shouldQuit ls = (posixSecondsToUTCTime $ modificationTimeHiRes stat) > startTime &&
-             --                  length (filter ("Linking" `BS.isPrefixOf`) ls) > 0
          case compare newSize sizeSoFar of
            GT -> do
               when verbose $ putStrLn "File changes detected (new lines added)" -- Debug
@@ -93,19 +99,17 @@ readLog mPath initSize delay lineCallback finishCallback verbose = do
               let ls = BS.splitWith (==10) newContents
               let startNext = newSize - (toInteger $ BS.length $ last ls)
               mapM_ (lineCallback store) $ init ls
-              done <- isEOF -- EOF of stdin, not the file
-              when done $ finishCallback store >> exitSuccess
               -- hClose h -- TODO: check how it alters behaviour
-              waitDelay
-              goFile path startNext store
+              waitInterval
+              goFile path startNext store asyncDone
            LT -> do
               when verbose $ putStrLn "New file detected - restarting" -- Debug
               store' <- initStore
-              goFile path 0 store'
+              goFile path 0 store' asyncDone
            EQ -> do
-              -- when verbose $ putStrLn "No file change. Waiting..." -- Debug (noisy)
-              waitDelay
-              goFile path sizeSoFar store
+              when verbose $ putStrLn "No file change. Waiting..." -- Debug (noisy)
+              waitInterval
+              goFile path sizeSoFar store asyncDone
 
 -- | Called on every new line in the log
 --   Create a Record for the line and put it in the Store
@@ -163,11 +167,14 @@ prettyPrint [] = putStrLn "No log lines found"
 
 -- | Pretty print an invidual record
 prettyRec :: Record -> BS.ByteString
--- Module line:
---   "[26 of 28] Compiling Web.Views.Site   ( myapp/Web/Views/Site.hs ..."
+-- In:  "[26 of 28] Compiling Web.Views.Site   ( myapp/Web/Views/Site.hs ..."
+-- Out: "Compiling Web.Views.Site"
 prettyRec (Record Module _ content) =
   "Compiling " <> (BS.takeWhile (/= 32) $ BS.drop 10 $ snd $ BS.breakSubstring "Compiling" content)
 prettyRec (Record _ _ content) = ellipsis (BS.take 70 content)
-  where ellipsis x = if BS.last x == 46 -- full stop, dot
-                        then x
-                        else x <> "..."
+
+-- | Add "..." to the end of a string
+ellipsis :: BS.ByteString -> BS.ByteString
+ellipsis x = if BS.last x == 46 -- No ellipsis if the last char is a full stop
+                then x
+                else x <> "..."

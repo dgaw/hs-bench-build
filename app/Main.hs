@@ -7,9 +7,9 @@ import           Options.Applicative
 
 -- | Command line options
 data Options = Options {
-    verbose  :: Bool
-  , interval :: Int
-  , file     :: Maybe FilePath
+    optVerbose  :: Bool
+  , optInterval :: MilliSeconds
+  , optFile     :: Maybe FilePath
 }
 
 options :: Parser Options
@@ -30,14 +30,14 @@ options = Options
           ( long "file"
          <> short 'f'
          <> help "Log file (required if using multiple local packages)"
-         <> metavar "FILE") )
+         <> metavar "LOG_FILE") )
 
 main :: IO ()
 main = do
   opts <- execParser optsInfo
-  readLog (file opts) 0 (interval opts * 1000) defLineCallback defFinishCallback (verbose opts)
+  readLog (optFile opts) (optInterval opts) defLineCallback defFinishCallback (optVerbose opts)
   where
     optsInfo = info (options <**> helper)
       ( fullDesc
-     <> progDesc "Watches the LOG_FILE and measures the compilation time of each module."
-     <> header "Benchmark the compilation time of each Haskell module using stack log files." )
+     <> progDesc "Watches stdin or LOG_FILE and measures the build time of each line."
+     <> header "Benchmark the compilation time of your Haskell project." )

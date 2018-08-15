@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2d0e889f17dd31039e1ab703d9fbc98d4022098959d1752d8445a5226d218ca4
+-- hash: 048f2b517294ce4b84725242ea933b30befebbae2623744beccd45d780fe4b16
 
 name:           hs-bench-build
 version:        0.2.0.0
@@ -34,7 +34,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
     , bytestring >=0.10.8.2
     , filepath
     , optparse-applicative
@@ -50,7 +51,8 @@ executable hs-bench-build
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
     , bytestring >=0.10.8.2
     , filepath
     , hs-bench-build
@@ -68,7 +70,8 @@ test-suite hs-bench-build-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
     , bytestring >=0.10.8.2
     , filepath
     , hs-bench-build
