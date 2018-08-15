@@ -2,11 +2,11 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 048f2b517294ce4b84725242ea933b30befebbae2623744beccd45d780fe4b16
+-- hash: b1a5574251fef85fbdc935d54a3d931fd681e08685dfbe115b0438c1ba798b03
 
 name:           hs-bench-build
 version:        0.2.0.0
-synopsis:       Benchmark the compilation time of your Haskell modules
+synopsis:       Benchmark the compilation time of your Haskell project.
 description:    Please see the README on GitHub at <https://github.com/dgaw/hs-bench-build#readme>
 category:       Benchmarking
 homepage:       https://github.com/dgaw/hs-bench-build#readme
