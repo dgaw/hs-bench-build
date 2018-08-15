@@ -9,7 +9,7 @@ import           Options.Applicative
 data Options = Options {
     verbose  :: Bool
   , interval :: Int
-  , file     :: FilePath
+  , file     :: Maybe FilePath
 }
 
 options :: Parser Options
@@ -25,7 +25,12 @@ options = Options
          <> showDefault
          <> value 100
          <> metavar "MILLISEC" )
-      <*> argument str (metavar "LOG_FILE")
+      -- <*> optional $ argument str (metavar "LOG_FILE")
+      <*> (optional $ strOption
+          ( long "file"
+         <> short 'f'
+         <> help "Log file (required if using multiple local packages)"
+         <> metavar "FILE") )
 
 main :: IO ()
 main = do
