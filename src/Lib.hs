@@ -19,7 +19,6 @@ import           System.IO.Error
 import           System.Posix.Files
 import           Text.Printf
 
-type FilePosition = Integer
 type MilliSeconds = Int
 type Store = MVar [Record]
 type Verbose = Bool
