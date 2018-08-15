@@ -15,7 +15,6 @@ import           Data.Time
 import           Control.Concurrent.Async
 import           System.Exit
 import           System.IO
-import           System.IO                (isEOF)
 import           System.IO.Error
 import           System.Posix.Files
 import           Text.Printf
