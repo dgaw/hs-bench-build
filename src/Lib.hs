@@ -173,6 +173,6 @@ prettyRec (Record _ _ content) = ellipsis (BS.take 70 content)
 
 -- | Add "..." to the end of a string
 ellipsis :: BS.ByteString -> BS.ByteString
-ellipsis x = if BS.last x == 46 -- No ellipsis if the last char is a full stop
+ellipsis x = if BS.length x == 0 || BS.last x == 46 -- No ellipsis if the last char is a full stop
                 then x
                 else x <> "..."

@@ -1,5 +1,5 @@
 name:                hs-bench-build
-version:             0.2.0.0
+version:             0.2.1.0
 github:              "dgaw/hs-bench-build"
 license:             BSD3
 author:              "Damian Gaweda"
